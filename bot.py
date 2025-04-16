@@ -1,5 +1,5 @@
 from aiogram import Bot, Dispatcher, types, executor
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 API_TOKEN = "8103348822:AAHRUmDFCaGLbKKxwOpwZRK8zI700KMQezc"
 
@@ -68,23 +68,38 @@ keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 for key in options.keys():
     keyboard.add(KeyboardButton(text=key))
 
+# Словарь для хранения ID сообщений, отправленных ботом
+sent_messages = {}
+
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
-    await message.answer("Выберите интересующий пункт:", reply_markup=keyboard)
+    # Удаляем все сообщения, отправленные ботом ранее (для каждого пользователя)
+    if message.from_user.id in sent_messages:
+        for msg_id in sent_messages[message.from_user.id]:
+            try:
+                await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+            except:
+                pass
+    # Отправляем новое сообщение с кнопками
+    sent_msg = await message.answer("Выберите интересующий пункт:", reply_markup=keyboard)
+    # Сохраняем ID нового сообщения
+    sent_messages[message.from_user.id] = [sent_msg.message_id]
 
 @dp.message_handler(lambda message: message.text in options)
 async def handle_option(message: types.Message):
-    try:
-        await message.delete()
-    except:
-        pass
+    # Удаляем все сообщения, отправленные ботом ранее
+    if message.from_user.id in sent_messages:
+        for msg_id in sent_messages[message.from_user.id]:
+            try:
+                await bot.delete_message(chat_id=message.chat.id, message_id=msg_id)
+            except:
+                pass
+    # Отправляем новый текст
     text = options[message.text]
-    copy_button = InlineKeyboardMarkup().add(InlineKeyboardButton("📋 Скопировать", callback_data=message.text))
-    await message.answer(text, parse_mode="Markdown", reply_markup=copy_button)
-
-@dp.callback_query_handler(lambda call: call.data in options)
-async def handle_copy(call: types.CallbackQuery):
-    await call.message.answer(options[call.data], parse_mode="Markdown")
+    sent_msg = await message.answer(text, parse_mode="Markdown")
+    
+    # Сохраняем ID нового сообщения
+    sent_messages[message.from_user.id].append(sent_msg.message_id)
 
 if __name__ == "__main__":
     executor.start_polling(dp)
