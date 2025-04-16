@@ -1,11 +1,12 @@
 from aiogram import Bot, Dispatcher, types, executor
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 API_TOKEN = "8103348822:AAHRUmDFCaGLbKKxwOpwZRK8zI700KMQezc"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Развёрнутые ответы
+# Тексты по кнопкам
 options = {
     "Прием и выдача наличных": (
         "📦 *Прием и выдача наличных в большинстве стран мира*\n\n"
@@ -63,16 +64,27 @@ options = {
     )
 }
 
+keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+for key in options.keys():
+    keyboard.add(KeyboardButton(text=key))
+
 @dp.message_handler(commands=["start"])
 async def start_cmd(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    for key in options.keys():
-        keyboard.add(types.KeyboardButton(text=key))
     await message.answer("Выберите интересующий пункт:", reply_markup=keyboard)
 
 @dp.message_handler(lambda message: message.text in options)
 async def handle_option(message: types.Message):
-    await message.answer(options[message.text], parse_mode="Markdown")
+    try:
+        await message.delete()
+    except:
+        pass
+    text = options[message.text]
+    copy_button = InlineKeyboardMarkup().add(InlineKeyboardButton("📋 Скопировать", callback_data=message.text))
+    await message.answer(text, parse_mode="Markdown", reply_markup=copy_button)
+
+@dp.callback_query_handler(lambda call: call.data in options)
+async def handle_copy(call: types.CallbackQuery):
+    await call.message.answer(options[call.data], parse_mode="Markdown")
 
 if __name__ == "__main__":
     executor.start_polling(dp)
